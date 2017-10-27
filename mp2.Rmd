@@ -10,6 +10,8 @@ output: html_document
 
 
 ```{r, include=FALSE}
+library(tidyverse)
+library(dplyr)
 load("house_elections.rda")
 load("candidates.rda")
 load("committees.rda")
@@ -17,3 +19,9 @@ load("contributions.rda")
 ```
 
 
+```{r}
+contributions %>%
+  select(transaction_type) %>%
+  group_by(transaction_type) %>%
+  summarise(N = n())
+```
