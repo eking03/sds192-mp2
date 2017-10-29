@@ -58,9 +58,9 @@ join_contributions2_candidates2 %>%
 ```
 ```{r, warning=FALSE}
 g<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, y = transaction_amt, col = cand_party_affiliation)) + 
-  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount") 
-  
-g
+  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount")+ 
+  labs(title = "Contibutions Against a Candidate")
+  g
 ```
 ```{r, warning=FALSE}
 g+facet_grid(.~cand_party_affiliation)
@@ -69,11 +69,46 @@ g+facet_grid(.~cand_party_affiliation)
 
 ```{r, warning=FALSE}
 f<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, col = cand_party_affiliation)) + 
-  geom_bar() + xlab("Transaction Date") + ylab("Transaction Amount") 
+  geom_bar() + xlab("Transaction Date") + ylab("Transaction Amount")+  labs(title = "Contibutions Against a Candidate") 
 f
 ```
 ```{r, warning=FALSE}
-f<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, col = cand_party_affiliation)) + 
+h<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, col = cand_party_affiliation)) + 
   geom_histogram() + xlab("Transaction Date") + ylab("Transaction Amount") 
-f
+h
+```
+NOW THE SAME THING BUT FOR 24E Type
+```{r}
+contributions3<-contributions %>% 
+  select(transaction_type, transaction_dt, transaction_amt, cand_id) %>%
+  filter(transaction_type == "24E")
+contributions3
+```
+```{r}
+ggplot(contributions3, aes(x = transaction_dt, y = transaction_amt)) +
+  geom_point()+  labs(title = "Contributions Supporting a Candidate")
+```
+```{r}
+candidates3<-candidates %>%
+  select(cand_id, cand_party_affiliation) 
+
+```
+```{r}
+join_contributions3_candidates3<- full_join(candidates3, contributions3, by = "cand_id") %>%
+  filter(transaction_type == "24E", cand_party_affiliation == "REP" | cand_party_affiliation == "DEM") %>%
+  mutate(transaction_date = mdy(transaction_dt))%>%
+  select(-transaction_dt)
+join_contributions3_candidates3
+```
+```{r}
+join_contributions3_candidates3 %>%
+  select(cand_party_affiliation) %>%
+  group_by(cand_party_affiliation) %>%
+  summarise(N = n())
+```
+
+```{r, warning=FALSE}
+i<-ggplot(join_contributions3_candidates3, aes(x = transaction_date, y = transaction_amt, col = cand_party_affiliation)) + 
+  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount") + labs(title = "Contibutions Supporting a Candidate")
+i
 ```
