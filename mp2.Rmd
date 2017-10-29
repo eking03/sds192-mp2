@@ -36,7 +36,7 @@ contributions2
 
 ```{r}
 ggplot(contributions2, aes(x = transaction_dt, y = transaction_amt)) +
-  geom_point()
+  geom_point()+ labs(title = "Contributions Against a Candidate")
 ```
 ```{r}
 candidates2<-candidates %>%
@@ -59,7 +59,7 @@ join_contributions2_candidates2 %>%
 ```{r, warning=FALSE}
 g<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, y = transaction_amt, col = cand_party_affiliation)) + 
   geom_point() + xlab("Transaction Date") + ylab("Transaction Amount")+ 
-  labs(title = "Contibutions Against a Candidate")
+  labs(title = "Contributions Against a Candidate")
   g
 ```
 ```{r, warning=FALSE}
@@ -69,7 +69,7 @@ g+facet_grid(.~cand_party_affiliation)
 
 ```{r, warning=FALSE}
 f<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, col = cand_party_affiliation)) + 
-  geom_bar() + xlab("Transaction Date") + ylab("Transaction Amount")+  labs(title = "Contibutions Against a Candidate") 
+  geom_bar() + xlab("Transaction Date") + ylab("Transaction Amount")+  labs(title = "Contributions Against a Candidate") 
 f
 ```
 ```{r, warning=FALSE}
@@ -109,6 +109,6 @@ join_contributions3_candidates3 %>%
 
 ```{r, warning=FALSE}
 i<-ggplot(join_contributions3_candidates3, aes(x = transaction_date, y = transaction_amt, col = cand_party_affiliation)) + 
-  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount") + labs(title = "Contibutions Supporting a Candidate")
+  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount") + labs(title = "Contributions Supporting a Candidate")
 i
 ```
