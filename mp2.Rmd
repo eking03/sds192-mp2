@@ -112,3 +112,187 @@ i<-ggplot(join_contributions3_candidates3, aes(x = transaction_date, y = transac
   geom_point() + xlab("Transaction Date") + ylab("Transaction Amount") + labs(title = "Contributions Supporting a Candidate")
 i
 ```
+
+
+
+## graphs from brainstorm ideas (they're a bit messy and unfinished)
+
+```{r}
+committee_contributions <- full_join(committees, contributions) 
+committee_contributions <- filter(committee_contributions, !is.na(transaction_amt))
+```
+
+
+### histogram of contributor type count faceted by candidate type (h,s,p)
+```{r}
+cc1 <- committee_contributions %>%
+  select(cmte_id, cand_id, cmte_party_affiliation, cmte_dsgn, cmte_type, org_type, transaction_type, entity_type, transaction_amt, transaction_dt)
+```
+
+```{r}
+cc1 <- candidates %>%
+  select(cand_id, cand_party_affiliation, cand_office) %>%
+  full_join(cc1) %>%
+  filter(!is.na(cand_id), !is.na(transaction_amt), !is.na(cand_office), transaction_amt > 0) %>%
+  mutate(transaction_date = mdy(transaction_dt))
+```
+
+```{r}
+ggplot(cc1, aes(x = entity_type)) +
+  geom_histogram(stat = "count") +
+  facet_wrap("cand_office")
+```
+
+
+### box-and-whisker plot of contribution per committee type faceted by candidate type
+```{r}
+ggplot(cc1, aes(x = entity_type, y = transaction_amt)) +
+  geom_boxplot(outlier.shape = NA) +
+  coord_cartesian(ylim = c(-50, 17500)) +
+  facet_wrap("cand_office")
+```
+
+
+### stacked area plot of percentage of contribution coming from each committee type to each candidate type (unsuccessful)
+
+```{r}
+cc2 <- cc1 %>%
+  select(transaction_date, cand_office, entity_type, transaction_amt)
+```
+
+```{r}
+cc3 <- cc2 %>%
+  group_by(date = floor_date(transaction_date, "month"), cand_office, entity_type) %>%
+  summarise(transaction_amt = sum(transaction_amt)) %>%
+  spread(key = entity_type, value = transaction_amt, fill = 0) %>% 
+  rename(OTHER = '')
+```
+
+doing the below function because otherwise it wasn't letting me add across columns. It was popping up with the error: zero-length variable blah blah
+```{r}
+cc3 <- cc3 %>%
+  transform(OTHER = as.integer(OTHER),
+            CAN = as.integer(CAN),
+            CCM = as.integer(CCM),
+            COM = as.integer(COM),
+            IND = as.integer(IND),
+            ORG = as.integer(ORG),
+            PAC = as.integer(PAC),
+            PTY = as.integer(PTY))
+```
+
+```{r}
+cc3 <- cc3 %>%
+  mutate(total = OTHER + CAN + CCM + COM + IND + ORG + PAC + PTY) %>%
+  mutate(OTHER = 100 * OTHER / total,
+         CAN = 100 * CAN / total,
+         CCM = 100 * CCM / total,
+         COM = 100 * COM / total,
+         IND = 100 * IND / total,
+         ORG = 100 * ORG / total,
+         PAC = 100 * PAC / total,
+         PTY = 100 * PTY / total) %>%
+  select(date, cand_office, OTHER, CAN, CCM, COM, IND, ORG, PAC, PTY) %>%
+  gather(key = entity_type, value = transaction_amt, -date, -cand_office)
+```
+
+```{r}
+ggplot(cc3, aes(x = date, y = transaction_amt, fill = entity_type)) +
+  geom_area() +
+  facet_wrap(~cand_office, scales = "free")
+```
+
+
+### how the transaction type (whether for a candidate or against the opposing candidate) changes over time/closer to election 
+
+```{r}
+cc4 <- candidates %>%
+  select(cand_id, cand_party_affiliation, cand_office) %>%
+  full_join(committee_contributions) %>%
+  filter(!is.na(cand_id), !is.na(transaction_type), !is.na(cand_office), transaction_amt > 0) %>%
+  mutate(transaction_date = mdy(transaction_dt)) %>%
+  filter(cand_party_affiliation == "REP" | cand_party_affiliation == "DEM", transaction_type == "24A" | transaction_type == "24E" | transaction_type == "24F" | transaction_type == "24N")
+```
+
+```{r}
+ggplot(cc4, aes(x = transaction_date, y = transaction_amt, color = cand_party_affiliation)) +
+  geom_point(data = transform(cc4, transaction_type = NULL), color = "grey85") +
+  geom_point(alpha = 0.4) +
+  facet_grid(cand_office ~ transaction_type, scales = "free") + 
+  scale_color_manual(breaks = c("DEM", "REP"),
+                     values=c("blue", "red"))
+```
+
+```{r}
+ggplot(cc4, aes(x = transaction_type)) +
+  geom_histogram(stat = "count") +
+  facet_grid(cand_office ~ cand_party_affiliation)
+```
+
+
+
+### candidate location compared to location of contributors (scale/gradient of how many places each state invested in)
+```{r}
+cmte <- committees %>%
+  select(cmte_id, cmte_state, cmte_city, cmte_party_affiliation)
+```
+
+```{r}
+contri <- contributions %>%
+  select(cmte_id, cand_id, transaction_amt)
+```
+
+```{r}
+cand <- candidates %>%
+  select(cand_id, cand_city, cand_state, cand_office_state, cand_office, cand_party_affiliation)
+```
+
+```{r}
+cmte_contri <- full_join(cmte, contri)
+```
+
+```{r}
+c3 <- full_join(cmte_contri, cand)
+```
+
+```{r}
+c3_1 <- c3 %>%
+  mutate(contribution_flow = ifelse(cmte_state == cand_state, "Within", "Outside")) %>%
+  group_by(cmte_state, contribution_flow) %>%
+  summarise(n_contributions = n(), n_places = n_distinct(cand_state)) %>%
+  filter(!is.na(contribution_flow))
+```
+
+```{r}
+ggplot(c3_1, aes(x = contribution_flow, y = n_contributions, fill = n_places)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~cmte_state, scales = "free_y")
+```
+
+
+```
+#### I'm not sure why this chunk below makes an the same graph
+
+c3_2 <- c3 %>%
+  filter(cand_office == "S") %>%
+  mutate(contribution_flow = ifelse(cmte_state == cand_office_state, "Within", "Outside")) %>%
+  group_by(cmte_state, contribution_flow) %>%
+  summarise(n_contributions = n(), n_places = n_distinct(cand_office_state)) %>%
+  filter(!is.na(contribution_flow))
+
+ggplot(c3_1, aes(x = contribution_flow, y = n_contributions, fill = n_places)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~cmte_state, scales = "free_y")
+```
+
+### something about how often a committee party will donate to a candidate outside of its own party
+```{r}
+c3_3 <- c3 %>%
+  filter(cmte_party_affiliation == "REP" | cmte_party_affiliation == "DEM") %>%
+  mutate(contribution_flow = ifelse(cmte_party_affiliation == cand_party_affiliation, "Same", "Diff"))
+```
+
+```{r}
+ggplot(c3_3, aes(x = contribution_flow)) +
+  geom_histogram(stat = "count")
+```
