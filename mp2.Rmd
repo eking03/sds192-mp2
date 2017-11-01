@@ -5,294 +5,181 @@ date: "October 31, 2017"
 output: html_document
 ---
 
-
-## Loading the data
-
-
 ```{r, include=FALSE}
 library(tidyverse)
 library(dplyr)
 library(lubridate)
+library(gridExtra)
+library(RColorBrewer)
 load("house_elections.rda")
 load("candidates.rda")
 load("committees.rda")
 load("contributions.rda")
 ```
 
+## Understanding the 2011-2012 Election's Contribution Data: *Introductory Visual Guide for the Non-Gov Major*
 
-```{r}
-contributions %>%
-  select(transaction_type) %>%
-  group_by(transaction_type) %>%
-  summarise(N = n())
-```
 
-```{r}
-contributions2<-contributions %>% 
-  select(transaction_type, transaction_dt, transaction_amt, cand_id) %>%
-  filter(transaction_type == "24A")
-contributions2
-```
+Politics has never been at the forefront of interest for either STEM-minded author of this document, however, through the curating of this project, many political concepts and processes have been demystified. It was our hope to present the 2011-2012 Elections' Contribution Data (collected from the Federal Election Commision's online database of archived files) in the most easily comprehendable manner and through acheiving this, we have also created a guide that presents polictal data in a way that is easily digestable for those of us less experienced in the field. The following is a visual guide that addressess three important, interesting, introductory questions: as it relates to the economy of House, Senate, and Presidential elections, who is the money coming from, where is the money going, and what is it being used for?
 
-```{r}
-ggplot(contributions2, aes(x = transaction_dt, y = transaction_amt)) +
-  geom_point()+ labs(title = "Contributions Against a Candidate")
-```
-```{r}
-candidates2<-candidates %>%
-  select(cand_id, cand_party_affiliation) 
 
-```
-```{r}
-join_contributions2_candidates2<- full_join(candidates2, contributions2, by = "cand_id") %>%
-  filter(transaction_type == "24A", cand_party_affiliation == "REP" | cand_party_affiliation == "DEM") %>%
-  mutate(transaction_date = mdy(transaction_dt))%>%
-  select(-transaction_dt)
-join_contributions2_candidates2
-```
-```{r}
-join_contributions2_candidates2 %>%
-  select(cand_party_affiliation) %>%
-  group_by(cand_party_affiliation) %>%
-  summarise(N = n())
-```
-```{r, warning=FALSE}
-g<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, y = transaction_amt, col = cand_party_affiliation)) + 
-  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount")+ 
-  labs(title = "Contributions Against a Candidate")
-  g
-```
-```{r, warning=FALSE}
-g+facet_grid(.~cand_party_affiliation)
+### Who is the money coming from?
+
+The following graph depicts the entity type of contributors to House, Presidential, and Senate elections (thusly divided to show which type of contributors act as the main financial supporters per candidate office). The results of this analysis yieled that in the presidential elections, candidates recieve the highest paying contributions and financial support comes somewhat equally from all types of entities (save for idividuals, emphasis on party organizations (PTY)), the highest contributing entities to House elections are organizations (ORG), and the Senate election candidates recieve the smallest contributions. 
+
+```{r, echo=FALSE}
+
+# The purpose of this document is to assemble a visual examination of the contribution data from the 2011-2012 Elections for House, Presidential and Senate seats, therefore, we chose to combine the 'committees', 'contributions', and 'candidates' data frames
+
+com_con_can <- committees %>% 
+  full_join(contributions, by = c("cmte_id", "cand_id")) %>%
+  full_join(candidates, by = "cand_id") %>%
+  # Since we focus primarily on the transactions made from committees towards candidates, we wanted to ensure that the tbl_df would have values available for all transaction_amt variable observations (and so these values would not represent refunds, only positive values were used) 
+  filter(!is.na(transaction_amt), transaction_amt > 0) %>%
+  # To be understand the direction of contributions, observations for the cand_id variable are necessary (cmte_id was not specified since the premise of the 'contribution' data frame relies on the presence of a cmte_id observation)
+  filter(!is.na(cand_id), !is.na(cand_office)) %>%
+  mutate(transaction_date = mdy(transaction_dt)) 
+
 ```
 
 
-```{r, warning=FALSE}
-f<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, col = cand_party_affiliation)) + 
-  geom_bar() + xlab("Transaction Date") + ylab("Transaction Amount")+  labs(title = "Contributions Against a Candidate") 
-f
-```
-```{r, warning=FALSE}
-h<-ggplot(join_contributions2_candidates2, aes(x = transaction_date, col = cand_party_affiliation)) + 
-  geom_histogram() + xlab("Transaction Date") + ylab("Transaction Amount") 
-h
-```
-NOW THE SAME THING BUT FOR 24E Type
-```{r}
-contributions3<-contributions %>% 
-  select(transaction_type, transaction_dt, transaction_amt, cand_id) %>%
-  filter(transaction_type == "24E")
-contributions3
-```
-```{r}
-ggplot(contributions3, aes(x = transaction_dt, y = transaction_amt)) +
-  geom_point()+  labs(title = "Contributions Supporting a Candidate")
-```
-```{r}
-candidates3<-candidates %>%
-  select(cand_id, cand_party_affiliation) 
+```{r, echo=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.align='center'}
 
-```
-```{r}
-join_contributions3_candidates3<- full_join(candidates3, contributions3, by = "cand_id") %>%
-  filter(transaction_type == "24E", cand_party_affiliation == "REP" | cand_party_affiliation == "DEM") %>%
-  mutate(transaction_date = mdy(transaction_dt))%>%
-  select(-transaction_dt)
-join_contributions3_candidates3
-```
-```{r}
-join_contributions3_candidates3 %>%
-  select(cand_party_affiliation) %>%
-  group_by(cand_party_affiliation) %>%
-  summarise(N = n())
-```
+cand_office_labels <- c(H = "House", P = "President", S = "Senate")
 
-```{r, warning=FALSE}
-i<-ggplot(join_contributions3_candidates3, aes(x = transaction_date, y = transaction_amt, col = cand_party_affiliation)) + 
-  geom_point() + xlab("Transaction Date") + ylab("Transaction Amount") + labs(title = "Contributions Supporting a Candidate")
-i
-```
-
-
-
-## graphs from brainstorm ideas (they're a bit messy and unfinished)
-
-```{r}
-committee_contributions <- full_join(committees, contributions) 
-committee_contributions <- filter(committee_contributions, !is.na(transaction_amt))
-```
-
-
-### histogram of contributor type count faceted by candidate type (h,s,p)
-```{r}
-cc1 <- committee_contributions %>%
-  select(cmte_id, cand_id, cmte_party_affiliation, cmte_dsgn, cmte_type, org_type, transaction_type, entity_type, transaction_amt, transaction_dt)
-```
-
-```{r}
-cc1 <- candidates %>%
-  select(cand_id, cand_party_affiliation, cand_office) %>%
-  full_join(cc1) %>%
-  filter(!is.na(cand_id), !is.na(transaction_amt), !is.na(cand_office), transaction_amt > 0) %>%
-  mutate(transaction_date = mdy(transaction_dt))
-```
-
-```{r}
-ggplot(cc1, aes(x = entity_type)) +
-  geom_histogram(stat = "count") +
-  facet_wrap("cand_office")
-```
-
-
-### box-and-whisker plot of contribution per committee type faceted by candidate type
-```{r}
-ggplot(cc1, aes(x = entity_type, y = transaction_amt)) +
+ggplot(com_con_can, aes(x = entity_type, y = transaction_amt, fill = entity_type)) +
   geom_boxplot(outlier.shape = NA) +
   coord_cartesian(ylim = c(-50, 17500)) +
-  facet_wrap("cand_office")
-```
-
-
-### stacked area plot of percentage of contribution coming from each committee type to each candidate type (unsuccessful)
-
-```{r}
-cc2 <- cc1 %>%
-  select(transaction_date, cand_office, entity_type, transaction_amt)
-```
-
-```{r}
-cc3 <- cc2 %>%
-  group_by(date = floor_date(transaction_date, "month"), cand_office, entity_type) %>%
-  summarise(transaction_amt = sum(transaction_amt)) %>%
-  spread(key = entity_type, value = transaction_amt, fill = 0) %>% 
-  rename(OTHER = '')
-```
-
-doing the below function because otherwise it wasn't letting me add across columns. It was popping up with the error: zero-length variable blah blah
-```{r}
-cc3 <- cc3 %>%
-  transform(OTHER = as.integer(OTHER),
-            CAN = as.integer(CAN),
-            CCM = as.integer(CCM),
-            COM = as.integer(COM),
-            IND = as.integer(IND),
-            ORG = as.integer(ORG),
-            PAC = as.integer(PAC),
-            PTY = as.integer(PTY))
-```
-
-```{r}
-cc3 <- cc3 %>%
-  mutate(total = OTHER + CAN + CCM + COM + IND + ORG + PAC + PTY) %>%
-  mutate(OTHER = 100 * OTHER / total,
-         CAN = 100 * CAN / total,
-         CCM = 100 * CCM / total,
-         COM = 100 * COM / total,
-         IND = 100 * IND / total,
-         ORG = 100 * ORG / total,
-         PAC = 100 * PAC / total,
-         PTY = 100 * PTY / total) %>%
-  select(date, cand_office, OTHER, CAN, CCM, COM, IND, ORG, PAC, PTY) %>%
-  gather(key = entity_type, value = transaction_amt, -date, -cand_office)
-```
-
-```{r}
-ggplot(cc3, aes(x = date, y = transaction_amt, fill = entity_type)) +
-  geom_area() +
-  facet_wrap(~cand_office, scales = "free")
-```
-
-
-### how the transaction type (whether for a candidate or against the opposing candidate) changes over time/closer to election 
-
-```{r}
-cc4 <- candidates %>%
-  select(cand_id, cand_party_affiliation, cand_office) %>%
-  full_join(committee_contributions) %>%
-  filter(!is.na(cand_id), !is.na(transaction_type), !is.na(cand_office), transaction_amt > 0) %>%
-  mutate(transaction_date = mdy(transaction_dt)) %>%
-  filter(cand_party_affiliation == "REP" | cand_party_affiliation == "DEM", transaction_type == "24A" | transaction_type == "24E" | transaction_type == "24F" | transaction_type == "24N")
-```
-
-```{r}
-ggplot(cc4, aes(x = transaction_date, y = transaction_amt, color = cand_party_affiliation)) +
-  geom_point(data = transform(cc4, transaction_type = NULL), color = "grey85") +
-  geom_point(alpha = 0.4) +
-  facet_grid(cand_office ~ transaction_type, scales = "free") + 
-  scale_color_manual(breaks = c("DEM", "REP"),
-                     values=c("blue", "red"))
-```
-
-```{r}
-ggplot(cc4, aes(x = transaction_type)) +
-  geom_histogram(stat = "count") +
-  facet_grid(cand_office ~ cand_party_affiliation)
+  facet_wrap(~cand_office, ncol = 1, labeller = labeller(cand_office = cand_office_labels)) +
+  # The lable name "UNK" had to be specified since it represented a blank cell in the data frame (and not "NA")
+  scale_x_discrete(name = "Entity Type (as defined by FEC)",
+                   breaks = c("", "CAN", "CCM", "COM", "IND", "ORG", "PAC", "PTY"),
+                   labels = c("UNK", "CAN", "CCM", "COM", "IND", "ORG", "PAC", "PTY")) +
+  scale_y_continuous(name = "Transaction Amount (in US Dollars)") +
+  scale_fill_discrete(name = "Entity Type",
+                      breaks = c("", "CAN", "CCM", "COM", "IND", "ORG", "PAC", "PTY"),
+                      labels = c("UNK - Unknown", "CAN - Candidate", "CCM - Candidate Committee", "COM - Committee", "IND - Individual", "ORG - Organization", "PAC - Political Action Committee", "PTY - Party Organization")) +
+  ggtitle("Transaction Amount Distribution per Candidate Office by Entity Type")
 ```
 
 
 
-### candidate location compared to location of contributors (scale/gradient of how many places each state invested in)
-```{r}
+### Where is the money going?
+
+```{r, echo=FALSE}
+
+# To minimize the processing strain on RStudio, the 'committees', 'contributions', and 'candidates' data frames were pruned using select() and then joined
+
 cmte <- committees %>%
   select(cmte_id, cmte_state, cmte_city, cmte_party_affiliation)
-```
 
-```{r}
 contri <- contributions %>%
   select(cmte_id, cand_id, transaction_amt)
-```
 
-```{r}
 cand <- candidates %>%
   select(cand_id, cand_city, cand_state, cand_office_state, cand_office, cand_party_affiliation)
-```
 
-```{r}
-cmte_contri <- full_join(cmte, contri)
-```
+c3_where <- cmte %>%
+  full_join(contri, by = "cmte_id") %>%
+  full_join(cand, by = "cand_id")
 
-```{r}
-c3 <- full_join(cmte_contri, cand)
-```
 
-```{r}
-c3_1 <- c3 %>%
-  mutate(contribution_flow = ifelse(cmte_state == cand_state, "Within", "Outside")) %>%
+c3_state <- c3_where %>%
+  # To understand whether committees were contributing to candidates from within or outside their state, the ifelse() function was used to identify whether the observations in the cmte_state column matched the observations in the cand_state column per row
+  mutate(contribution_flow = ifelse(cmte_state == cand_state, "In", "Out")) %>%
   group_by(cmte_state, contribution_flow) %>%
+  # The n() argument was used to detail the number/count of transactions per state (this groups committees/contributors based on their state of, presumably, primary operation) and n_distinct(cand_state) further details "Outside" contribution_flow by counting the number of different states contributed to by the committees of a single state
   summarise(n_contributions = n(), n_places = n_distinct(cand_state)) %>%
   filter(!is.na(contribution_flow))
+
+
+# A different object ('c3_party') was created so as to not limit 'c3_state' data by filtering committees that identified a party affiliation or, more specifically, as Democrat or Replican
+
+c3_party <- c3_where %>%
+  filter(cmte_party_affiliation == "REP" | cmte_party_affiliation == "DEM", cand_party_affiliation == "REP" | cand_party_affiliation == "DEM") %>%
+  mutate(contribution_flow = ifelse(cmte_party_affiliation == cand_party_affiliation, "Same", "Different"))
+
 ```
 
-```{r}
-ggplot(c3_1, aes(x = contribution_flow, y = n_contributions, fill = n_places)) +
+```{r, echo=FALSE, warning=FALSE, fig.width=6, fig.height=4, fig.align='center'}
+
+affiliation_labels <- c(DEM = "Democrat", REP = "Republican")
+
+ggplot(c3_party, aes(x = contribution_flow)) +
+  geom_histogram(stat = "count") +
+  facet_wrap(~ cmte_party_affiliation, labeller = labeller(cmte_party_affiliation = affiliation_labels)) +
+  scale_x_discrete(name = "Party of Contributor compared to Party of Recipient Candidate") +
+  scale_y_continuous(name = "Number of Transactions") +
+  ggtitle("Number of Transactions from Democrat and Republican \nContributors to Candidates of the Same vs Differing Parties")
+```
+
+Even with limited experience in politics, it is given that many contributors will contribute to candidates of the same party (this data is also presented above, where most Democrats contributed to Democrats and Republicans to Republicans). We can guess these results because we assume that people want to elect like-minded people, but under this assumption most contributions would likely occur within the state of the contributing committee's primary operation. This idea, if only refuted due to the existance of DC, is flawed. So, in a more literal sense, where did the money go? Did contributors want to keep their money at "home" or were they involved in investments elsewhere (and if so, just how involved were they?). In the plot below, we find that most contributors contributed to candidates from outside of their states. DC had the highest number of contributions, and the highest number of contributions to other states. The data is inclusive of all 50 states and territories and shows that the territories had the lowest involvement in other states.
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=8}
+
+c3_state$contribution_flow <- factor(c3_state$contribution_flow, levels = c("In", "Out"))
+
+ggplot(c3_state, aes(x = contribution_flow, y = n_contributions, fill = n_places)) +
   geom_bar(stat = "identity") +
-  facet_wrap(~cmte_state, scales = "free_y")
+  facet_wrap(~cmte_state, scales = "free_y") +
+  scale_fill_continuous(name = "Number of States \nContributed To",
+                        breaks = c(10, 20, 30, 40, 50),
+                        labels = c(10, 20, 30, 40, 50),
+                        low = "black", high = "#66CCFF") +
+  scale_x_discrete(name = "Direction of Contributions (as it relates to the state)") +
+  scale_y_continuous(name = "Number of Transactions") +
+  ggtitle("Number of Contributor Transactions to Candidates from Within vs Outside of the Contributor's State")
 ```
 
 
-```
-#### I'm not sure why this chunk below makes an the same graph
 
-c3_2 <- c3 %>%
-  filter(cand_office == "S") %>%
-  mutate(contribution_flow = ifelse(cmte_state == cand_office_state, "Within", "Outside")) %>%
-  group_by(cmte_state, contribution_flow) %>%
-  summarise(n_contributions = n(), n_places = n_distinct(cand_office_state)) %>%
-  filter(!is.na(contribution_flow))
+### What is the money being used for?
 
-ggplot(c3_1, aes(x = contribution_flow, y = n_contributions, fill = n_places)) +
-  geom_bar(stat = "identity") +
-  facet_wrap(~cmte_state, scales = "free_y")
-```
+Now we know who is contributing and who/where they are contributing to, but what was the contributitors' intent for their contributions? Where do they want it to go? What do they want to see it do? Since this document is a brief visual introduction/update into the 2011-2012 Election's contribution data, presenting data on the transaction types most utilized by each party was prioritized since it has been such a "hot button" topic in the news. It should be noted that according to the FEC, transaction types 24A and 24E (the ones we are most focused on) are independent expenditures: these are expenditures for communication that can advocate for or against a candidate and are not "coordinated with a candidate, candidate’s committee, party committee or their agents". As it relates to transaction types 24F (advocating) and 24N (opposing), communication costs are expenditures of corporations or labor forces that expresses the company's support or rejection of a candidate to the group's affiliated personnel. 
 
-### something about how often a committee party will donate to a candidate outside of its own party
-```{r}
-c3_3 <- c3 %>%
-  filter(cmte_party_affiliation == "REP" | cmte_party_affiliation == "DEM") %>%
-  mutate(contribution_flow = ifelse(cmte_party_affiliation == cand_party_affiliation, "Same", "Diff"))
+We find in the plots below that the majority of Republican contributions are designated to campaign the opposition of a candidate, whereas Democratic contributions are more likely to campaign for the advocacy of a candidate. It should also be noted that the largest transaction amounts contributed occured closest to the election date and were mostly oriented towards opposition (24E) of a candidate, and this true as it relates to both parties.
+
+```{r, echo=FALSE}
+
+# 'transaction_type' details what the contributors are trying to do with their contributions, and primary focus is on transaction_types "24A" and "24N", expenditures opposing a candidate's election, and "24E" and "24F", expeditures advocating a candidates election
+
+c3_transactions <- com_con_can %>%
+  filter(!is.na(transaction_type)) %>%
+  filter(cand_party_affiliation == "REP" | cand_party_affiliation == "DEM", transaction_type == "24A" | transaction_type == "24E" | transaction_type == "24F" | transaction_type == "24N")
+
 ```
 
-```{r}
-ggplot(c3_3, aes(x = contribution_flow)) +
-  geom_histogram(stat = "count")
+```{r, echo=FALSE, warning=FALSE}
+c3_transactions2 <- ggplot(c3_transactions, aes(x = transaction_date, y = transaction_amt, color = cand_party_affiliation)) +
+  geom_point(data = transform(c3_transactions, transaction_type = NULL), color = "grey85", size = 1) +
+  geom_point(size = 1) +
+  facet_grid(cand_office ~ transaction_type, scales = "free",
+             labeller = labeller(cand_office = cand_office_labels)) +
+  scale_color_brewer(palette = "Set1", direction = -1) +
+  theme(legend.position = "none") +
+  scale_x_date(name = "Date of Transaction") +
+  scale_y_continuous(name = "Transaction Amount (in US Dollars)") +
+  ggtitle("Transaction Amount per Transaction Type and \nCandidate Office by Date")
+
+c3_transactions1 <- ggplot(c3_transactions, aes(x = transaction_type)) +
+  geom_histogram(stat = "count") +
+  facet_grid(cand_office ~ cand_party_affiliation,
+             labeller = labeller(cand_party_affiliation = affiliation_labels, cand_office = cand_office_labels)) +
+  scale_x_discrete(name = "Transaction Type (Code)") +
+  scale_y_continuous(name = "Number of Transactions") +
+  ggtitle("Number of Transactions per Party and Candidate \nOffice by Transaction Type")
 ```
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10}
+grid.arrange(c3_transactions1, c3_transactions2, ncol = 2)
+```
+
+```
+Transaction type codes and their meanings:
+* 24A - Independent expenditure opposing election of candidate
+* 24N - Communication cost against candidate (only for Form 7 filer)
+* 24E - Independent expenditure advocating election of candidate
+* 24F - Communication cost for candidate (only for Form 7 filer)
+```
+
+
